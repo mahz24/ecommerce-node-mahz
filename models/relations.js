@@ -4,6 +4,8 @@ const { Order } = require('./order.model');
 const { Product } = require('./product.model');
 const { ProductInCart } = require('./productsInCart.model');
 const { Cart } = require('./cart.model');
+const { Category } = require('./category.model');
+const { ProductImg } = require('./productImg.model');
 
 const relations = () => {
   //User --> Products
@@ -25,6 +27,14 @@ const relations = () => {
   //Cart --> Order
   Cart.hasOne(Order);
   Order.belongsTo(Cart);
+
+  //Product --> ProductIms
+  Product.hasMany(ProductImg);
+  ProductImg.belongsTo(Product);
+
+  //Category --> Product
+  Category.hasOne(Product);
+  Product.belongsTo(Category);
 };
 
 module.exports = { relations };

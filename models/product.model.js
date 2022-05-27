@@ -29,6 +29,10 @@ const Product = db.define('product', {
     allowNull: false,
     defaultValue: 'active',
   },
+  categoryId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+  },
   userId: {
     type: DataTypes.INTEGER,
     allowNull: false,
