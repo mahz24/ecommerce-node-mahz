@@ -11,6 +11,8 @@ const { User } = require('../models/user.model');
 const { Product } = require('../models/product.model');
 const { Order } = require('../models/order.model');
 const { Cart } = require('../models/cart.model');
+const { Category } = require('../models/category.model');
+const { ProductInCart } = require('../models/productsInCart.model');
 
 //Utils
 const { catchAsync } = require('../utils/catchAsync');
@@ -50,7 +52,10 @@ const logUser = catchAsync(async (req, res, next) => {
 const productsUser = catchAsync(async (req, res, next) => {
   const { user } = req;
 
-  const products = await Product.findAll({ where: { userId: user.id } });
+  const products = await Product.findAll({
+    where: { userId: user.id },
+    include: [{ model: Category }],
+  });
 
   res.status(200).json({ status: 'success', products });
 });
@@ -64,9 +69,7 @@ const getOrdersUser = catchAsync(async (req, res, next) => {
       {
         model: Cart,
         required: false,
-        include: [
-          { model: Product, required: false, where: { status: 'purchsed' } },
-        ],
+        include: [{ model: ProductInCart, where: { status: 'purchsed' } }],
       },
     ],
   });
@@ -84,11 +87,19 @@ const getOrderById = catchAsync(async (req, res, next) => {
         model: Cart,
         required: false,
         include: [
-          { model: Product, required: false, where: { status: 'purchsed' } },
+          {
+            model: ProductInCart,
+            required: false,
+            where: { status: 'purchsed' },
+          },
         ],
       },
     ],
   });
+
+  if (!order) {
+    next(new AppError('This order not exist'));
+  }
 
   res.status(200).json({ order });
 });

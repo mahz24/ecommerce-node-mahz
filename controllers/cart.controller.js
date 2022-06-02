@@ -147,7 +147,7 @@ const productPurchase = catchAsync(async (req, res, next) => {
     include: [{ model: Cart, include: [{ model: ProductInCart }] }],
   });
 
-  res.status(200).json({ order, total });
+  res.status(200).json({ order });
 });
 
 module.exports = {
