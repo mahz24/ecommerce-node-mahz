@@ -42,9 +42,7 @@ const addProductToCart = catchAsync(async (req, res, next) => {
     quantity,
   });
 
-  const product2 = await Product.findOne({ id: productId });
-
-  console.log(newProduct.quantity, product2.quantity);
+  const product2 = await Product.findOne({ where: { id: productId } });
 
   if (newProduct.quantity > product2.quantity) {
     await newProduct.update({ status: 'removed' });
@@ -138,10 +136,15 @@ const productPurchase = catchAsync(async (req, res, next) => {
 
   await cart.update({ status: 'purchased' });
 
-  const order = await Order.create({
+  const orderNew = await Order.create({
     userId: user.id,
     cartId: cart.id,
     totlaPrice: total,
+  });
+
+  const order = await Order.findOne({
+    where: { cartId: orderNew.cartId },
+    include: [{ model: Cart, include: [{ model: ProductInCart }] }],
   });
 
   res.status(200).json({ order, total });
