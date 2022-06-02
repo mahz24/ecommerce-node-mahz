@@ -2,6 +2,7 @@
 const { Cart } = require('../models/cart.model');
 const { ProductInCart } = require('../models/productsInCart.model');
 const { Product } = require('../models/product.model');
+const { Order } = require('../models/order.model');
 
 //Utils
 const { AppError } = require('../utils/AppError');
@@ -19,7 +20,11 @@ const addProductToCart = catchAsync(async (req, res, next) => {
     cart = await Cart.create({ userId: user.id });
   }
 
-  if (await ProductInCart.findOne({ where: { productId, status: 'active' } })) {
+  const existProductInCart = await ProductInCart.findOne({
+    where: { productId, status: 'active' },
+  });
+
+  if (existProductInCart) {
     return next(new AppError('This product exist in cart'));
   }
 
@@ -39,6 +44,8 @@ const addProductToCart = catchAsync(async (req, res, next) => {
 
   const product2 = await Product.findOne({ id: productId });
 
+  console.log(newProduct.quantity, product2.quantity);
+
   if (newProduct.quantity > product2.quantity) {
     await newProduct.update({ status: 'removed' });
     return next(new AppError('The requested amount is not available'), 404);
@@ -50,7 +57,7 @@ const updateProductInCart = catchAsync(async (req, res, next) => {
   const { user } = req;
   const { productId, quantity } = req.body;
 
-  const cart = await Cart.findOne({ userId: user.id });
+  const cart = await Cart.findOne({ where: { userId: user.id } });
 
   const productCart = await ProductInCart.findOne({
     where: { cartId: cart.id, productId },
@@ -62,14 +69,16 @@ const updateProductInCart = catchAsync(async (req, res, next) => {
 
   await productCart.update({ quantity });
 
-  const product = await Product.findOne({ id: productId, status: 'active' });
+  const product = await Product.findOne({
+    where: { id: productId, status: 'active' },
+  });
 
   if (!product) {
     return next(new AppError('Sold out', 404));
   }
 
   if (product.quantity < productCart.quantity) {
-    await newProduct.update({ status: 'removed' });
+    await productCart.update({ status: 'removed' });
     return next(new AppError('The requested amount is not available'), 404);
   }
 
@@ -81,7 +90,66 @@ const updateProductInCart = catchAsync(async (req, res, next) => {
     await productCart.update({ status: 'active' });
   }
 
-  res.status(200).json({ status: 'success', newProduct });
+  res.status(200).json({ status: 'success' });
 });
 
-module.exports = { addProductToCart, updateProductInCart };
+const deleteProductCart = catchAsync(async (req, res, next) => {
+  const { productId } = req.params;
+
+  const product = await ProductInCart.findOne({ where: { productId } });
+
+  if (!product) {
+    return next(new AppError('This product not exist', 404));
+  }
+
+  await product.update({ quantity: 0, status: 'removed' });
+
+  res.status(200).json({ status: 'success', product });
+});
+
+const productPurchase = catchAsync(async (req, res, next) => {
+  const { user } = req;
+  const cart = await Cart.findOne({
+    where: { userId: user.id, status: 'active' },
+    include: [{ model: ProductInCart, where: { status: 'active' } }],
+  });
+
+  if (!cart) {
+    return next(new AppError('Cart not exist', 404));
+  }
+
+  let total = 0;
+
+  const cartPurchased = cart.productincarts.map(async prod => {
+    const product = await Product.findOne({ where: { id: prod.productId } });
+
+    const quantity = product.quantity - prod.quantity;
+
+    await product.update({ quantity });
+
+    total += product.price * prod.quantity;
+
+    await prod.update({ status: 'purchased' });
+
+    return product;
+  });
+
+  await Promise.all(cartPurchased);
+
+  await cart.update({ status: 'purchased' });
+
+  const order = await Order.create({
+    userId: user.id,
+    cartId: cart.id,
+    totlaPrice: total,
+  });
+
+  res.status(200).json({ order, total });
+});
+
+module.exports = {
+  addProductToCart,
+  updateProductInCart,
+  deleteProductCart,
+  productPurchase,
+};
