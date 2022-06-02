@@ -1,4 +1,5 @@
 const express = require('express');
+const { upload } = require('../utils/multer');
 
 //Middleware
 const { checkToken } = require('../middlewares/user.middleware');
@@ -35,7 +36,12 @@ router.patch('/categories/:id', updateCategory);
 router
   .route('/')
   .get(getAllProducts)
-  .post(verifyProduct, checkValidations, addProduct);
+  .post(
+    upload.array('productImgs'),
+    verifyProduct,
+    checkValidations,
+    addProduct
+  );
 router
   .route('/:id')
   .get(checkProduct, getProductById)
